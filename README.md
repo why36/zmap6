@@ -64,13 +64,19 @@ zmap -q -M quic_initial -p"443" --output-module="csv" \
 * `--output-module=csv`: save as csv
 * `-f "..."`: specifies fields that will be stored in the output file
 * `-o output.csv`: name of the output file
-* `--probe-args="padding:X"` [optional]: changes default (1200 bytes necessary) padding to X bytes
+* `--probe-args="padding:X"` [optional]: changes default padding to X bytes
 * `$address`: IPv4 address
 * `$netmask`: 0-32
 
-With the `--probe-args="padding:X"` argument, we are able to scan with 
-packets that do not follow the current specification of using at least 1200 Bytes as payload. 
-Responses may come from wrongly configured QUIC clients.
+
+The Initial packet should be at least 1200 Bytes long according to the specification.
+The default padding is 1200 - sizeof(long_quic_header) [22 Bytes] = 1178 Bytes
+
+With the `--probe-args="padding:X"` argument, we can scan target using Initial packets 
+that do not follow the current specification. 
+* Default: X=1178
+* Initial packets without padding: X=0
+* Initial packets with size 300: X=278
 
 License and Copyright
 ---------------------

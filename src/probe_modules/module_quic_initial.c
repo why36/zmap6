@@ -34,7 +34,7 @@
 
 #define UNUSED __attribute__((unused))
 
-static int padding_length = QUIC_PACKET_LENGTH;
+static int padding_length = QUIC_PACKET_LENGTH - sizeof(quic_long_hdr);
 
 static inline uint64_t make_quic_conn_id(char a, char b, char c, char d, char e,
 					 char f, char g, char h)
@@ -105,7 +105,7 @@ int quic_initial_init_perthread(void *buf, macaddr_t *src, macaddr_t *gw,
 				__attribute__((unused)) void **arg_ptr)
 {
 	// set length of udp msg
-	int udp_send_msg_len = padding_length;
+	int udp_send_msg_len = padding_length + sizeof(quic_long_hdr);
 	//log_debug("prepare", "UDP PAYLOAD LEN: %d", udp_send_msg_len);
 
 	memset(buf, 0, MAX_PACKET_SIZE);
@@ -149,7 +149,7 @@ int quic_initial_make_packet(void *buf, UNUSED size_t *buf_len,
 	uint8_t *payload = (uint8_t *)&udp_header[1];
 	int payload_len = 0;
 
-	memset(payload, 0, padding_length);
+	memset(payload, 0, padding_length + sizeof(quic_long_hdr));
 
 	quic_long_hdr *common_hdr = (quic_long_hdr *)payload;
 
@@ -165,12 +165,11 @@ int quic_initial_make_packet(void *buf, UNUSED size_t *buf_len,
 	common_hdr->dst_conn_id = connection_id;
 	common_hdr->src_conn_id_length = 0x00;
 	common_hdr->token_length = 0x00;
-	common_hdr->length = padding_length - sizeof(quic_long_hdr) +
-			     sizeof(common_hdr->packet_number);
+	common_hdr->length = padding_length + sizeof(common_hdr->packet_number);
 	common_hdr->packet_number = 0x0000;
 
 	// Padding was already done with memset
-	payload_len = padding_length;
+	payload_len = padding_length + sizeof(quic_long_hdr);
 
 	// Update the IP and UDP headers to match the new payload length
 	ip_header->ip_len =
