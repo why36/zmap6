@@ -45,6 +45,32 @@ More information can be found using the `--help` flag.
 
 As targets for your IPv6 measurements you can e.g. use addresses from our [IPv6 Hitlist Service](https://ipv6hitlist.github.io/).
 
+QUIC Probe module
+-----------------------
+
+We added probe modules for IPv4 and IPv6 to detect QUIC capable hosts based on the Version negotiation as described in [RFC9000](https://datatracker.ietf.org/doc/html/rfc9000)
+
+To start the scanner enter:
+
+```bash
+zmap -q -M quic_initial -p"443" --output-module="csv" \
+-f "saddr,classification,success,versions" -o "output.csv" \
+--probe-args="padding:1200" "$address/$netmask"
+```
+
+* `-q`: silent / without stdout
+* `-p`: port, usually 443 for QUIC
+* `-M quic_initial`: loads our QUIC probe module
+* `--output-module=csv`: save as csv
+* `-f "..."`: specifies fields that will be stored in the output file
+* `-o output.csv`: name of the output file
+* `--probe-args="padding:X"` [optional]: changes default (1200 bytes necessary) padding to X bytes
+* `$address`: IPv4 address
+* `$netmask`: 0-32
+
+With the `--probe-args="padding:X"` argument, we are able to scan with 
+packets that do not follow the current specification of using at least 1200 Bytes as payload. 
+Responses may come from wrongly configured QUIC clients.
 
 License and Copyright
 ---------------------
