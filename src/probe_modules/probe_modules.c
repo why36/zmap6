@@ -55,7 +55,7 @@ probe_module_t* probe_modules[] = {
 	&module_ipv6_tcp_synopt,
 	&module_ipv6_udp,
 	&module_ipv6_udp_dns,
-	&module_icmp6_echoscan
+	&module_icmp6_echoscan,
 	// ADD YOUR MODULE HERE
     &module_quic_initial
 };
