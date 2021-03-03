@@ -9,6 +9,7 @@ include_directories(
 # ADD YOUR PROBE MODULE HERE
 set(EXTRA_PROBE_MODULES
     probe_modules/module_quic_initial.c
+    probe_modules/module_ipv6_quic_initial.c
 )
 
 # ADD YOUR OUTPUT MODULE HERE

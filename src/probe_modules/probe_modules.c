@@ -38,6 +38,7 @@ extern probe_module_t module_icmp6_echoscan;
 
 // ADD YOUR MODULE HERE
 extern probe_module_t module_quic_initial;
+extern probe_module_t module_ipv6_quic_initial;
 
 probe_module_t* probe_modules[] = {
 	&module_tcp_synscan,
@@ -57,7 +58,8 @@ probe_module_t* probe_modules[] = {
 	&module_ipv6_udp_dns,
 	&module_icmp6_echoscan,
 	// ADD YOUR MODULE HERE
-    &module_quic_initial
+    &module_quic_initial,
+    &module_ipv6_quic_initial
 };
 
 probe_module_t *get_probe_module_by_name(const char *name)
