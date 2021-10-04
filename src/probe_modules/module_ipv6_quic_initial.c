@@ -47,7 +47,7 @@ static int num_ports;
 
 probe_module_t module_ipv6_quic_initial;
 static char filter_rule[30];
-uint64_t connection_id;
+uint64_t connection_id_v6;
 
 void ipv6_quic_initial_set_num_ports(int x) { num_ports = x; }
 
@@ -87,7 +87,7 @@ int ipv6_quic_initial_global_initialize(struct state_conf *conf){
 	    sizeof(struct ether_header) + sizeof(struct ip6_hdr) +
 	    sizeof(struct udphdr) + QUIC_PACKET_LENGTH;
 
-	connection_id =
+	connection_id_v6 =
 	    ipv6_make_quic_conn_id('S', 'C', 'A', 'N', 'N', 'I', 'N', 'G');
 
 	if (args != NULL) {
@@ -168,7 +168,7 @@ int ipv6_quic_initial_make_packet(void *buf, UNUSED size_t *buf_len,
 	common_hdr->header_flags = protected_header_flags | public_header_flags;
 	common_hdr->version = QUIC_VERSION_FORCE_NEGOTIATION;
 	common_hdr->dst_conn_id_length = HEADER_CONNECTION_ID_LENGTH;
-	common_hdr->dst_conn_id = connection_id;
+	common_hdr->dst_conn_id = connection_id_v6;
 	common_hdr->src_conn_id_length = 0x00;
 	common_hdr->token_length = 0x00;
 	common_hdr->length = padding_length + sizeof(common_hdr->packet_number);
@@ -224,7 +224,7 @@ void ipv6_quic_initial_process_packet(const u_char *packet, UNUSED uint32_t len,
 				    quic_version_negotiation
 					    ->src_conn_id_length == 0x08 &&
 				    quic_version_negotiation->src_conn_id ==
-					connection_id) {
+					connection_id_v6) {
 					fs_add_string(fs, "classification",
 						      (char *)"quic", 0);
 					fs_add_uint64(fs, "success", 1);
