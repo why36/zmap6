@@ -122,10 +122,10 @@ int quic_initial_init_perthread(void *buf, macaddr_t *src, macaddr_t *gw,
 
 	char *payload = (char *)(&udp_header[1]);
 
-	module_quic_initial.packet_length =
+	module_quic_initial.max_packet_length =
 	    sizeof(struct ether_header) + sizeof(struct ip) +
 	    sizeof(struct udphdr) + udp_send_msg_len;
-	assert(module_quic_initial.packet_length <= MAX_PACKET_SIZE);
+	assert(module_quic_initial.max_packet_length <= MAX_PACKET_SIZE);
 	memset(payload, 0, udp_send_msg_len);
 
 	return EXIT_SUCCESS;
@@ -321,7 +321,7 @@ static fielddef_t fields[] = {
 probe_module_t module_quic_initial = {
     .name = "quic_initial",
     // we are resetting the actual packet length during initialization of the module
-    .packet_length = sizeof(struct ether_header) + sizeof(struct ip) +
+    .max_packet_length = sizeof(struct ether_header) + sizeof(struct ip) +
 		     sizeof(struct udphdr) + QUIC_PACKET_LENGTH,
     // this gets replaced by the actual port during global init
     .pcap_filter = "udp",

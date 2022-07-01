@@ -56,7 +56,7 @@ int ipv6_tcp_synopt_global_initialize(struct state_conf *conf)
 
 	if (!(conf->probe_args && strlen(conf->probe_args) > 0)){
 		printf("no args, using empty tcp options\n");
-		module_ipv6_tcp_synopt.packet_length = sizeof(struct ether_header) + sizeof(struct ip6_hdr)
+		module_ipv6_tcp_synopt.max_packet_length = sizeof(struct ether_header) + sizeof(struct ip6_hdr)
 				+ sizeof(struct tcphdr);
 		return(EXIT_SUCCESS);
 	}
@@ -100,10 +100,10 @@ int ipv6_tcp_synopt_global_initialize(struct state_conf *conf)
 		tcp_send_opts_len = MAX_OPT_LEN;
 		exit(1);
 	}
-	module_ipv6_tcp_synopt.packet_length = sizeof(struct ether_header) + sizeof(struct ip6_hdr)
+	module_ipv6_tcp_synopt.max_packet_length = sizeof(struct ether_header) + sizeof(struct ip6_hdr)
 			+ sizeof(struct tcphdr)+ tcp_send_opts_len;
 
-	return EXIT_SUCCESS;	
+	return EXIT_SUCCESS;
 }
 
 int ipv6_tcp_synopt_init_perthread(void* buf, macaddr_t *src,
@@ -142,7 +142,7 @@ int ipv6_tcp_synopt_make_packet(void *buf, UNUSED size_t *buf_len, __attribute__
 
     tcp_header->th_off = 5+tcp_send_opts_len/4; // default length = 5 + 9*32 bit options
 
-	
+
 	tcp_header->th_sum = 0;
 	tcp_header->th_sum = tcp6_checksum(sizeof(struct tcphdr)+tcp_send_opts_len,
 			&ip6_header->ip6_src, &ip6_header->ip6_dst, tcp_header);
@@ -211,7 +211,7 @@ void ipv6_tcp_synopt_process_packet(const u_char *packet,
 
 probe_module_t module_ipv6_tcp_synopt = {
 	.name = "ipv6_tcp_synopt",
-	.packet_length = 74, // will be extended at runtime
+	.max_packet_length = 74, // will be extended at runtime
 	.pcap_filter = "ip6 proto 6 && (ip6[53] & 4 != 0 || ip6[53] == 18)",
 	.pcap_snaplen = 116+10*4, // max option len
 	.port_args = 1,

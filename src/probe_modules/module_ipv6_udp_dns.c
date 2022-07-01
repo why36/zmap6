@@ -200,9 +200,9 @@ int ipv6_udp_dns_init_perthread(void* buf, macaddr_t *src,
 
 	char* payload = (char*)(&udp_header[1]);
 
-	module_ipv6_udp_dns.packet_length = sizeof(struct ether_header) + sizeof(struct ip6_hdr)
+	module_ipv6_udp_dns.max_packet_length = sizeof(struct ether_header) + sizeof(struct ip6_hdr)
 				+ sizeof(struct udphdr) + udp_send_msg_len;
-	assert(module_ipv6_udp_dns.packet_length <= MAX_PACKET_SIZE);
+	assert(module_ipv6_udp_dns.max_packet_length <= MAX_PACKET_SIZE);
 
 	memcpy(payload, udp_send_msg, udp_send_msg_len);
 
@@ -346,7 +346,7 @@ static fielddef_t fields[] = {
 
 probe_module_t module_ipv6_udp_dns = {
 	.name = "ipv6_dns",
-	.packet_length = 1,
+	.max_packet_length = 1,
 	.pcap_filter = "ip6 proto 17 || icmp6",
 	.pcap_snaplen = 1500,			// TO BE CHANGED FOR EXSTIMATE REFLECTION SIZE
 	.port_args = 1,

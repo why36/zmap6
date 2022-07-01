@@ -31,8 +31,8 @@ static uint8_t **seen = NULL;
 
 // IPv6
 static int ipv6 = 0;
-
-void handle_packet(uint32_t buflen, const u_char *bytes, const struct timespec ts)
+void handle_packet(uint32_t buflen, const u_char *bytes,
+		   const struct timespec ts)
 {
 	struct ip *ip_hdr;
 	uint32_t src_ip;
@@ -91,14 +91,15 @@ void handle_packet(uint32_t buflen, const u_char *bytes, const struct timespec t
 		}
 	}
 
-	fieldset_t *fs = fs_new_fieldset();
+	fieldset_t *fs = fs_new_fieldset(&zconf.fsconf.defs);
+	fs_add_ip_fields(fs, ip_hdr);
 	// IPv6
 	if (ipv6) {
 		fs_add_ipv6_fields(fs, ipv6_hdr);
 	} else {
 		fs_add_ip_fields(fs, ip_hdr);
 	}
-
+	
 	// HACK:
 	// probe modules expect the full ethernet frame
 	// in process_packet. For VPN, we only get back an IP frame.
@@ -148,10 +149,10 @@ void handle_packet(uint32_t buflen, const u_char *bytes, const struct timespec t
 	fieldset_t *o = NULL;
 	// we need to translate the data provided by the probe module
 	// into a fieldset that can be used by the output module
-	if (!is_success && zconf.filter_unsuccessful) {
+	if (!is_success && zconf.default_mode) {
 		goto cleanup;
 	}
-	if (is_repeat && zconf.filter_duplicates) {
+	if (is_repeat && zconf.default_mode) {
 		goto cleanup;
 	}
 	if (!evaluate_expression(zconf.filter.expression, fs)) {
@@ -190,22 +191,19 @@ int recv_run(pthread_mutex_t *recv_ready_mutex)
 	}
 	// initialize paged bitmap
 	seen = pbm_init();
-	if (zconf.filter_duplicates) {
-		log_debug("recv",
-			  "duplicate responses will be excluded from output");
+	if (zconf.default_mode) {
+		log_info("recv",
+			 "duplicate responses will be excluded from output");
+		log_info("recv",
+			 "unsuccessful responses will be excluded from output");
 	} else {
-		log_debug("recv",
-			  "duplicate responses will be included in output");
-	}
-	if (zconf.filter_unsuccessful) {
-		log_debug(
+		log_info(
 		    "recv",
-		    "unsuccessful responses will be excluded from output");
-	} else {
-		log_debug("recv",
-			  "unsuccessful responses will be included in output");
+		    "duplicate responses will be passed to the output module");
+		log_info(
+		    "recv",
+		    "unsuccessful responses will be passed to the output module");
 	}
-
 	pthread_mutex_lock(recv_ready_mutex);
 	zconf.recv_ready = 1;
 	pthread_mutex_unlock(recv_ready_mutex);

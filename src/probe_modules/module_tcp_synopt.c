@@ -45,7 +45,7 @@ int tcpsynopt_global_initialize(struct state_conf *conf)
 
 	if (!(conf->probe_args && strlen(conf->probe_args) > 0)){
 		printf("no args, using empty tcp options\n");
-		module_tcp_synopt.packet_length = sizeof(struct ether_header) + sizeof(struct ip)
+		module_tcp_synopt.max_packet_length = sizeof(struct ether_header) + sizeof(struct ip)
 				+ sizeof(struct tcphdr);
 		return(EXIT_SUCCESS);
 	}
@@ -90,7 +90,7 @@ int tcpsynopt_global_initialize(struct state_conf *conf)
 		tcp_send_opts_len = MAX_OPT_LEN;
 		exit(1);
 	}
-	module_tcp_synopt.packet_length = sizeof(struct ether_header) + sizeof(struct ip)
+	module_tcp_synopt.max_packet_length = sizeof(struct ether_header) + sizeof(struct ip)
 			+ sizeof(struct tcphdr)+ tcp_send_opts_len;
 
 	return EXIT_SUCCESS;
@@ -218,7 +218,7 @@ void tcpsynopt_process_packet(const u_char *packet,
 
 probe_module_t module_tcp_synopt = {
 	.name = "tcp_synopt",
-	.packet_length = 54, // will be extended at runtime
+	.max_packet_length = 54, // will be extended at runtime
 	// tcp, ack set or syn+ack (bit random)
 	.pcap_filter = "tcp && tcp[13] & 4 != 0 || tcp[13] == 18",
 	.pcap_snaplen = 96+10*4, //max len
