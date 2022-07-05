@@ -76,12 +76,12 @@ typedef struct mon_start_arg {
 } mon_start_arg_t;
 
 const char *default_help_text =
-    "By default, ZMap prints out unique, successful"
+    "By default, ZMap prints out unique, successful "
     "IP addresses (e.g., SYN-ACK from a TCP SYN scan) "
     "in ASCII form (e.g., 192.168.1.5) to stdout or the specified output "
     "file. Internally this is handled by the \"csv\" output module and is "
     "equivalent to running zmap --output-module=csv --output-fields=saddr "
-    "--output-filter=\"success = 1 && repeat = 0\".";
+    "--output-filter=\"success = 1 && repeat = 0\" --no-header-row.";
 
 static void *start_send(void *arg)
 {
@@ -144,7 +144,8 @@ static void start_zmap(void)
 			log_fatal(
 			    "zmap",
 			    "could not detect default gateway address for %s."
-			    " Try setting default gateway mac address (-G).",
+			    " Try setting default gateway mac address (-G)."
+			    " If this is a newly launched machine, try completing an outgoing network connection (e.g. curl https://zmap.io), and trying again.",
 			    zconf.iface);
 		}
 		log_debug("zmap", "found gateway IP %s on %s", inet_ntoa(gw_ip),
@@ -156,7 +157,8 @@ static void start_zmap(void)
 			    "zmap",
 			    "could not detect GW MAC address for %s on %s."
 			    " Try setting default gateway mac address (-G), or run"
-			    " \"arp <gateway_ip>\" in terminal.",
+			    " \"arp <gateway_ip>\" in terminal."
+			    " If this is a newly launched machine, try completing an outgoing network connection (e.g. curl https://zmap.io), and trying again.",
 			    inet_ntoa(gw_ip), zconf.iface);
 		}
 		zconf.gw_mac_set = 1;
@@ -165,7 +167,8 @@ static void start_zmap(void)
 		  zconf.gw_mac[0], zconf.gw_mac[1], zconf.gw_mac[2],
 		  zconf.gw_mac[3], zconf.gw_mac[4], zconf.gw_mac[5]);
 	// Initialization
-	log_info("zmap", "output module: %s", zconf.output_module->name);
+	assert(zconf.output_module && "no output module set");
+	log_debug("zmap", "output module: %s", zconf.output_module->name);
 	if (zconf.output_module && zconf.output_module->init) {
 		if (zconf.output_module->init(&zconf, zconf.output_fields,
 					      zconf.output_fields_len)) {
@@ -334,6 +337,8 @@ int main(int argc, char *argv[])
 		config_loaded = 1;
 	}
 
+	// set defaults before loading in command line arguments
+	init_empty_global_configuration(&zconf);
 	// initialize logging. if no log file or log directory are specified
 	// default to using stderr.
 	zconf.log_level = args.verbosity_arg;
@@ -363,7 +368,6 @@ int main(int argc, char *argv[])
 		sprintf(fullpath, "%s/%s", zconf.log_directory, path);
 		log_location = fopen(fullpath, "w");
 		free(fullpath);
-
 	} else {
 		log_location = stderr;
 	}
@@ -387,11 +391,25 @@ int main(int argc, char *argv[])
 	// other command-line helpers (e.g. probe help)
 	log_debug("zmap", "requested ouput-module: %s", args.output_module_arg);
 
-	// zmap's default behavior is to provide a simple file of the unique IP
-	// addresses that responded successfully.
-	if (!strcmp(args.output_module_arg, "default")) {
-		log_debug("zmap", "no output module provided. will use csv.");
+	// ZMap's default behavior is to provide a simple file of the unique IP
+	// addresses that responded successfully. We only use this simple "default"
+	// mode if none of {output module, output filter, output fields} are set.
+	zconf.default_mode = (!(args.output_module_given || args.output_filter_given || args.output_fields_given));
+	if (zconf.default_mode) {
+		log_info("zmap", "By default, ZMap will output the unique IP addresses "
+				"of hosts that respond successfully (e.g., SYN-ACK packet). This "
+				"is equivalent to running ZMap with the following flags: "
+				"--output-module=csv --output-fields=saddr --output-filter='"
+				"success=1 && repeat=0' --no-header-row. "
+				"If you want all responses, explicitly set an output module or "
+				"set --output-filter=\"\".");
 		zconf.output_module = get_output_module_by_name("csv");
+		zconf.output_module_name = strdup("csv");
+		zconf.no_header_row = 1;
+	} else if (!args.output_module_given) {
+		log_debug("zmap", "No output module provided. Will use csv.");
+		zconf.output_module = get_output_module_by_name("csv");
+		zconf.output_module_name = strdup("csv");
 	} else {
 		zconf.output_module =
 		    get_output_module_by_name(args.output_module_arg);
@@ -401,8 +419,8 @@ int main(int argc, char *argv[])
 			    "specified output module (%s) does not exist\n",
 			    args.output_module_arg);
 		}
+		zconf.output_module_name = strdup(args.output_module_arg);
 	}
-	zconf.output_module_name = strdup(args.output_module_arg);
 	zconf.probe_module = get_probe_module_by_name(args.probe_module_arg);
 	if (!zconf.probe_module) {
 		log_fatal("zmap",
@@ -424,20 +442,21 @@ int main(int argc, char *argv[])
 	}
 	if (args.help_given) {
 		cmdline_parser_print_help();
-		printf("\nProbe-module (%s) Help:\n", zconf.probe_module->name);
+		printf("\nProbe Module (%s) Help:\n", zconf.probe_module->name);
 		if (zconf.probe_module->helptext) {
-			fprintw(stdout, (char *)zconf.probe_module->helptext,
+			fprintw(stdout, zconf.probe_module->helptext,
 				80);
 		} else {
 			printf("no help text available\n");
 		}
-		printf("\nOutput-module (%s) Help:\n",
-		       zconf.output_module->name);
+		assert(zconf.output_module && "no output module set");
+		const char *module_name = zconf.default_mode ? "Default" : zconf.output_module->name;
+		printf("\nOutput Module (%s) Help:\n", module_name);
 
-		if (!strcmp(args.output_module_arg, "default")) {
-			fprintw(stdout, (char *)default_help_text, 80);
+		if (zconf.default_mode) {
+			fprintw(stdout, default_help_text, 80);
 		} else if (zconf.output_module->helptext) {
-			fprintw(stdout, (char *)zconf.output_module->helptext,
+			fprintw(stdout, zconf.output_module->helptext,
 				80);
 		} else {
 			printf("no help text available\n");
@@ -482,52 +501,40 @@ int main(int argc, char *argv[])
 	}
 	// find the fields we need for the framework
 	zconf.fsconf.success_index =
-	    fds_get_index_by_name(fds, (char *)"success");
+	    fds_get_index_by_name(fds, "success");
 	if (zconf.fsconf.success_index < 0) {
 		log_fatal("fieldset", "probe module does not supply "
 				      "required success field.");
 	}
-	zconf.fsconf.app_success_index =
-	    fds_get_index_by_name(fds, (char *)"app_success");
+	zconf.fsconf.app_success_index = fds_get_index_by_name(fds, "app_success");
+
 	if (zconf.fsconf.app_success_index < 0) {
 		log_debug("fieldset", "probe module does not supply "
 				      "application success field.");
 	} else {
-		log_debug(
-		    "fieldset",
+		log_debug( "fieldset",
 		    "probe module supplies app_success"
 		    " output field. It will be included in monitor output");
 	}
-	zconf.fsconf.classification_index =
-	    fds_get_index_by_name(fds, (char *)"classification");
+	zconf.fsconf.classification_index = fds_get_index_by_name(fds, "classification");
 	if (zconf.fsconf.classification_index < 0) {
 		log_fatal("fieldset", "probe module does not supply "
 				      "required packet classification field.");
 	}
-	// default output module does not support multiple fields throw an error
-	// if the user asks for this because otherwise we'll generate a
-	// malformed CSV file when this gets redirected to the CSV output module
-	if (args.output_fields_given &&
-	    !strcmp(args.output_module_arg, "default")) {
-		log_fatal(
-		    "output",
-		    "default output module does not support multiple"
-		    " fields. Please specify an output module (e.g., CSV)");
-	}
 	// process the list of requested output fields.
 	if (args.output_fields_given) {
 		zconf.raw_output_fields = args.output_fields_arg;
-	} else if (!zconf.raw_output_fields) {
-		zconf.raw_output_fields = (char *)"saddr";
+	} else {
+		zconf.raw_output_fields = "saddr";
 	}
 	// add all fields if wildcard received
 	if (!strcmp(zconf.raw_output_fields, "*")) {
 		zconf.output_fields_len = zconf.fsconf.defs.len;
 		zconf.output_fields =
-		    xcalloc(zconf.fsconf.defs.len, sizeof(char *));
+		    xcalloc(zconf.fsconf.defs.len, sizeof(const char *));
 		for (int i = 0; i < zconf.fsconf.defs.len; i++) {
 			zconf.output_fields[i] =
-			    (char *)zconf.fsconf.defs.fielddefs[i].name;
+			    zconf.fsconf.defs.fielddefs[i].name;
 		}
 		fs_generate_full_fieldset_translation(&zconf.fsconf.translation,
 						      &zconf.fsconf.defs);
@@ -546,20 +553,11 @@ int main(int argc, char *argv[])
 		    zconf.output_fields, zconf.output_fields_len);
 	}
 	// default filtering behavior is to drop unsuccessful and duplicates
-	if (!args.output_filter_arg ||
-	    !strcmp(args.output_filter_arg, "default")) {
-		zconf.filter_duplicates = 1;
-		zconf.filter_unsuccessful = 1;
+	if (zconf.default_mode) {
 		log_debug(
 		    "filter",
-		    "no output filter specified. will use default: exclude duplicates and unssuccessful");
-	} else if (args.output_filter_arg &&
-		   !strcmp(args.output_filter_arg, "")) {
-		zconf.filter_duplicates = 0;
-		zconf.filter_unsuccessful = 0;
-		log_debug("filter",
-			  "empty output filter. will not exclude any values");
-	} else {
+		    "No output filter specified. Will use default: exclude duplicates and unssuccessful");
+	} else if (args.output_filter_given && strcmp(args.output_filter_arg, "")) {
 		// Run it through yyparse to build the expression tree
 		if (!parse_filter_string(args.output_filter_arg)) {
 			log_fatal("zmap", "Unable to parse filter expression");
@@ -572,18 +570,21 @@ int main(int argc, char *argv[])
 		zconf.output_filter_str = args.output_filter_arg;
 		log_debug("filter", "will use output filter %s",
 			  args.output_filter_arg);
+	} else if (args.output_filter_given) { // (empty filter argument)
+		log_debug("filter", "Empty output filter provided. ZMap will output all "
+				"results, including duplicate and non-successful responses.");
+	} else {
+		log_info("filter", "No output filter provided. ZMap will output all "
+				"results, including duplicate and non-successful responses (e.g., "
+				"RST and ICMP packets). If you want a filter similar to ZMap's "
+				"default behavior, you can set an output filter similar to the "
+				"following: --output-filter=\"success=1 && repeat=0\".");
 	}
-	// --ignore-invalid-hosts is deprecated and will be removed in zmap 4.0
-	if (args.ignore_invalid_hosts_given) {
-		log_warn(
-		    "zmap",
-		    "--ignore-invalid-hosts is deprecated and will be removed in ZMap 4.0. Use --ignore-blocklist-errors instead to ignore invalid blocklist/allowlist entries.");
-	}
-	zconf.ignore_invalid_hosts = args.ignore_invalid_hosts_given ||
-				     args.ignore_blocklist_errors_given;
+	zconf.ignore_invalid_hosts = args.ignore_blocklist_errors_given;
 
 	SET_BOOL(zconf.dryrun, dryrun);
 	SET_BOOL(zconf.quiet, quiet);
+	SET_BOOL(zconf.no_header_row, no_header_row);
 	zconf.cooldown_secs = args.cooldown_time_arg;
 	SET_IF_GIVEN(zconf.output_filename, output_file);
 	SET_IF_GIVEN(zconf.blocklist_filename, blocklist_file);
@@ -634,7 +635,7 @@ int main(int argc, char *argv[])
 				  "unable to open metadata file (%s): %s",
 				  zconf.metadata_filename, strerror(errno));
 		}
-		log_debug("metadata", "metdata will be saved to %s",
+		log_debug("metadata", "metadata will be saved to %s",
 			  zconf.metadata_filename);
 	}
 
@@ -856,7 +857,7 @@ int main(int argc, char *argv[])
 #endif
 	// Figure out what cores to bind to
 	if (args.cores_given) {
-		char **core_list = NULL;
+		const char **core_list = NULL;
 		int len = 0;
 		split_string(args.cores_arg, &len, &core_list);
 		zconf.pin_cores_len = (uint32_t)len;

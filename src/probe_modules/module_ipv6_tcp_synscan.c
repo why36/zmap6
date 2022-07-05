@@ -159,7 +159,7 @@ static fielddef_t fields[] = {
 
 probe_module_t module_ipv6_tcp_synscan = {
 	.name = "ipv6_tcp_synscan",
-	.packet_length = 74,
+	.max_packet_length = 74,
 	.pcap_filter = "ip6 proto 6 && (ip6[53] & 4 != 0 || ip6[53] == 18)",
 	.pcap_snaplen = 116, // was 96 for IPv4
 	.port_args = 1,

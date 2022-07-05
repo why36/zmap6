@@ -1,7 +1,7 @@
 ZMap: The Internet Scanner
 ==========================
 
-[![Build Status](https://travis-ci.org/zmap/zmap.svg?branch=travis-configuration)](https://travis-ci.org/zmap/zmap)
+![Build Status](https://github.com/zmap/zmap/actions/workflows/cmake.yml/badge.svg)
 
 ZMap is a fast single packet network scanner designed for Internet-wide network
 surveys. On a typical desktop computer with a gigabit Ethernet connection, ZMap
@@ -13,14 +13,15 @@ ZMap operates on GNU/Linux, Mac OS, and BSD. ZMap currently has fully implemente
 probe modules for TCP SYN scans, ICMP, DNS queries, UPnP, BACNET, and can send a
 large number of [UDP probes](https://github.com/zmap/zmap/blob/master/examples/udp-probes/README).
 If you are looking to do more involved scans, e.g.,
-banner grab or TLS handshake, take a look at [ZGrab](https://github.com/zmap/zgrab),
+banner grab or TLS handshake, take a look at [ZGrab 2](https://github.com/zmap/zgrab2),
 ZMap's sister project that performs stateful application-layer handshakes.
 
 Installation
 ------------
 
 The latest stable release of ZMap is version 2.1.1 and supports Linux, macOS, and
-BSD. We recommend installing ZMap from HEAD rather than using a distro package manager.
+BSD. However, the release was tagged in 2015, and since then quite a bit has changed. Accordingly,
+_we strongly encourage researchers to use [ZMap 3.0.0 Beta 1](https://github.com/zmap/zmap/releases/tag/v3.0.0-beta1)._
 
 **Instructions on building ZMap from source** can be found in [INSTALL](INSTALL.md).
 

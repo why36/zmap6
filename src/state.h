@@ -104,8 +104,8 @@ struct state_conf {
 	char *custom_metadata_str;
 	char **destination_cidrs;
 	int destination_cidrs_len;
-	char *raw_output_fields;
-	char **output_fields;
+	const char *raw_output_fields;
+	const char **output_fields;
 	struct output_filter filter;
 	char *output_filter_str;
 	struct fieldset_conf fsconf;
@@ -117,8 +117,6 @@ struct state_conf {
 	int quiet;
 	int ignore_invalid_hosts;
 	int syslog;
-	int filter_duplicates;
-	int filter_unsuccessful;
 	int recv_ready;
 	int num_retries;
 	uint64_t total_allowed;
@@ -128,6 +126,8 @@ struct state_conf {
 	char *ipv6_source_ip;
 	char *ipv6_target_filename;
 	int data_link_size;
+	int default_mode;
+	int no_header_row;
 #ifdef PFRING
 	struct {
 		pfring_zc_cluster *cluster;
@@ -140,6 +140,8 @@ struct state_conf {
 #endif
 };
 extern struct state_conf zconf;
+
+void init_empty_global_configuration(struct state_conf *c);
 
 // global sender stats
 struct state_send {

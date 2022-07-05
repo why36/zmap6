@@ -240,7 +240,7 @@ static fielddef_t fields[] = {
 
 probe_module_t module_icmp6_echoscan = {
 	.name = "icmp6_echoscan",
-	.packet_length = 70, // 62, // ICMPv4: 64 bit --> Why 62? ICMPv6 also 64 bit --> Leave 64
+	.max_packet_length = 70, // 62, // ICMPv4: 64 bit --> Why 62? ICMPv6 also 64 bit --> Leave 64
 	.pcap_filter = "icmp6 && (ip6[40] == 129 || ip6[40] == 3 || ip6[40] == 1 || ip6[40] == 2 || ip6[40] == 4)", // and icmp6[0]=!8",
 	.pcap_snaplen =  118, // 14 ethernet header + 40 IPv6 header + 8 ICMPv6 header + 40 inner IPv6 header + 8 inner ICMPv6 header + 8 payload
 	.port_args = 0,

@@ -28,10 +28,6 @@ ZMap has the following dependencies:
   - [libunistring](https://www.gnu.org/software/libunistring/) - Unicode string library for C
   - [libdnet](https://github.com/dugsong/libdnet) - (macOS Only) Gateway and route detection
 
-In addition, the following optional packages enable optional ZMap functionality:
-
-  - [hiredis](https://github.com/redis/hiredis) - RedisDB support in C
-
 Install the required dependencies with the following commands.
 
 * On Debian-based systems (including Ubuntu):
@@ -47,6 +43,12 @@ Install the required dependencies with the following commands.
 * On macOS systems (using [Homebrew](http://brew.sh/)):
   ```sh
   brew install pkg-config cmake gmp gengetopt json-c byacc libdnet libunistring
+  ```
+
+* To launch a shell inside a Docker container with the build dependencies
+  mounted at `/src`:
+  ```sh
+  docker run -it -v $(pwd):/src zmap/builder
   ```
 
 ### Building and Installing ZMap
@@ -66,11 +68,6 @@ Release builds should be built with `-DENABLE_DEVELOPMENT=OFF`.
 
 - Enabling `log_trace` can have a major performance impact and should not be used
 except during early development. Release builds should be built with `-DENABLE_LOG_TRACE=OFF`.
-
-- Redis support is not enabled by default. If you want to use ZMap with Redis,
-you will first need to install hiredis. Then run cmake with `-DWITH_REDIS=ON`.
-Debian/Ubuntu has packaged hiredis as `libhiredis-dev`; Fedora and RHEL/CentOS
-have packaged it as `hiredis-devel`.
 
 - Building packages for some systems like Fedora and RHEL requires a user-definable
 directory (buildroot) to put files. The way to respect this prefix is to run cmake

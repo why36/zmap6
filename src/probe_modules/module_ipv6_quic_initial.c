@@ -127,10 +127,10 @@ int ipv6_quic_initial_init_perthread(void *buf, macaddr_t *src, macaddr_t *gw,
 
 	char *payload = (char *)(&udp_header[1]);
 
-	module_ipv6_quic_initial.packet_length =
+	module_ipv6_quic_initial.max_packet_length =
 	    sizeof(struct ether_header) + sizeof(struct ip6_hdr) +
 	    sizeof(struct udphdr) + udp_send_msg_len;
-	assert(module_ipv6_quic_initial.packet_length <= MAX_PACKET_SIZE);
+	assert(module_ipv6_quic_initial.max_packet_length <= MAX_PACKET_SIZE);
 	memset(payload, 0, udp_send_msg_len);
 
 	return EXIT_SUCCESS;
@@ -304,7 +304,7 @@ int ipv6_quic_initial_validate_packet(const struct ip *ip_hdr, uint32_t len,
 		// buffer not large enough to contain expected udp header
 		return PACKET_INVALID;
 	}
-	struct udphdr *udp = 
+	struct udphdr *udp =
 	    (struct udphdr *) (&ipv6_hdr[1]);
 	uint16_t sport = ntohs(udp->uh_dport);
 	if (!check_dst_port(sport, num_ports, validation)) {
@@ -325,7 +325,7 @@ static fielddef_t fields[] = {
 probe_module_t module_ipv6_quic_initial = {
     .name = "ipv6_quic_initial",
     // we are resetting the actual packet length during initialization of the module
-    .packet_length = sizeof(struct ether_header) + sizeof(struct ip6_hdr) +
+    .max_packet_length = sizeof(struct ether_header) + sizeof(struct ip6_hdr) +
 		     sizeof(struct udphdr) + QUIC_PACKET_LENGTH,
     // this gets replaced by the actual port during global init
     .pcap_filter = "udp",
