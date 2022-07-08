@@ -92,14 +92,13 @@ void handle_packet(uint32_t buflen, const u_char *bytes,
 	}
 
 	fieldset_t *fs = fs_new_fieldset(&zconf.fsconf.defs);
-	fs_add_ip_fields(fs, ip_hdr);
 	// IPv6
 	if (ipv6) {
 		fs_add_ipv6_fields(fs, ipv6_hdr);
 	} else {
 		fs_add_ip_fields(fs, ip_hdr);
 	}
-	
+
 	// HACK:
 	// probe modules expect the full ethernet frame
 	// in process_packet. For VPN, we only get back an IP frame.
