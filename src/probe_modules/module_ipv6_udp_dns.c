@@ -209,7 +209,7 @@ int ipv6_udp_dns_init_perthread(void* buf, macaddr_t *src,
 	return EXIT_SUCCESS;
 }
 
-int ipv6_udp_dns_make_packet(void *buf, UNUSED size_t *buf_len, UNUSED ipaddr_n_t src_ip, UNUSED ipaddr_n_t dst_ip,
+int ipv6_udp_dns_make_packet(void *buf, size_t *buf_len, UNUSED ipaddr_n_t src_ip, UNUSED ipaddr_n_t dst_ip,
 		uint8_t ttl, uint32_t *validation, int probe_num, __attribute__((unused)) void *arg) {
 	struct ether_header *eth_header = (struct ether_header *) buf;
 	struct ip6_hdr *ip6_header = (struct ip6_hdr*) (&eth_header[1]);
@@ -221,6 +221,11 @@ int ipv6_udp_dns_make_packet(void *buf, UNUSED size_t *buf_len, UNUSED ipaddr_n_
 	udp_header->uh_sport = htons(get_src_port(num_ports, probe_num,
 				     validation));
 	udp_header->uh_sum = ipv6_udp_checksum(&ip6_header->ip6_src, &ip6_header->ip6_dst, udp_header);
+	
+	udp_header->uh_sum = ipv6_udp_checksum(&ip6_header->ip6_src,    &ip6_header->ip6_dst, udp_header);
+
+	size_t headers_len = sizeof(struct ether_header) + sizeof(struct ip6_hdr) + sizeof(struct udphdr);
+	*buf_len = headers_len + udp_send_msg_len;
 
 	return EXIT_SUCCESS;
 }
