@@ -274,7 +274,7 @@ int ipv6_udp_make_packet(void *buf, size_t *buf_len, __attribute__((unused)) ipa
 
 	ip6_header->ip6_src = ((struct in6_addr *) arg)[0];
 	ip6_header->ip6_dst = ((struct in6_addr *) arg)[1];
-	ip6_header->ip6_ctlun.ip6_un1.ip6_un1_flow = (ip6_header->ip6_ctlun.ip6_un1.ip6_un1_flow & 0xFFFFFF00) | ttl;
+	ip6_header->ip6_ctlun.ip6_un1.ip6_un1_flow = (ip6_header->ip6_ctlun.ip6_un1.ip6_un1_flow & 0x00FFFFFF) | (((uint32_t)ttl) << 24);
 	ip6_header->ip6_ctlun.ip6_un1.ip6_un1_hlim = ttl;
 	// udp_header->uh_sport = htons(get_src_port(num_ports, probe_num,
 	// 			     validation));
