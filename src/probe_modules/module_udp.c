@@ -521,7 +521,8 @@ int ipv6_udp_validate_packet(const struct ip6_hdr *ipv6_hdr, uint32_t len,
 	}
 
 	if (!check_dst_port(sport, num_ports, validation)) {
-		return 0;
+		//Ignore port restriction
+		return 1;
 	}
 
 	return 1;

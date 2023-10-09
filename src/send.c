@@ -400,82 +400,84 @@ int send_run(sock_t st, shard_t *s)
 			}
 			for (int i = 0; i < zconf.packet_streams; i++) {
 				count++;
-				uint32_t src_ip = get_src_ip(current_ip, i);
-				uint32_t validation[VALIDATE_BYTES /
-						    sizeof(uint32_t)];
-				// IPv6
-				if (ipv6) {
-					((struct in6_addr *) probe_data)[0] = ipv6_src;
-					((struct in6_addr *) probe_data)[1] = ipv6_dst;
-					validate_gen_ipv6(&ipv6_src, &ipv6_dst, (uint8_t *)validation);
-				} else {
-					validate_gen(src_ip, current_ip,
-						     (uint8_t *)validation);
-				}
-				uint8_t ttl = zconf.probe_ttl;
-				size_t length = 0;
-				zconf.probe_module->make_packet(
-				    buf, &length, src_ip, current_ip, ttl,
-				    validation, i, probe_data);
-				if (length > MAX_PACKET_SIZE) {
-					log_fatal(
-					    "send",
-					    "send thread %hhu set length (%zu) larger than MAX (%zu)",
-					    s->thread_id, length,
-					    MAX_PACKET_SIZE);
-				}
-				if (zconf.dryrun) {
-					lock_file(stdout);
-					zconf.probe_module->print_packet(stdout,
-									 buf);
-					unlock_file(stdout);
-				} else {
-					void *contents =
-					    buf +
-					    zconf.send_ip_pkts *
-						sizeof(struct ether_header);
-					length -= (zconf.send_ip_pkts *
-						   sizeof(struct ether_header));
-					int any_sends_successful = 0;
-					for (int i = 0; i < attempts; ++i) {
-						int rc = send_packet(
-						    st, contents, length, idx);
-						if (rc < 0) {
-							// IPv6
-							if (ipv6) {
-								char ipv6_str[100];
-								inet_ntop(AF_INET6, &ipv6_dst, ipv6_str, 100-1);
-								log_debug("send", "send_packet failed for %s. %s",
-										  ipv6_str, strerror(errno));
-							} else {
-								struct in_addr addr;
-								addr.s_addr = current_ip;
-								char addr_str_buf[INET_ADDRSTRLEN];
-								const char *addr_str =
-								    inet_ntop(
-									AF_INET, &addr,
-									addr_str_buf,
-									INET_ADDRSTRLEN);
-								if (addr_str != NULL) {
-									log_debug(
-									"send",
-									"send_packet failed for %s. %s",
-									addr_str,
-									strerror(
-										errno));
+					for(int k = 1; k <= 31; k++) {
+					uint32_t src_ip = get_src_ip(current_ip, i);
+					uint32_t validation[VALIDATE_BYTES /
+								sizeof(uint32_t)];
+					// IPv6
+					if (ipv6) {
+						((struct in6_addr *) probe_data)[0] = ipv6_src;
+						((struct in6_addr *) probe_data)[1] = ipv6_dst;
+						validate_gen_ipv6(&ipv6_src, &ipv6_dst, (uint8_t *)validation);
+					} else {
+						validate_gen(src_ip, current_ip,
+								(uint8_t *)validation);
+					}
+					uint8_t ttl = k;
+					size_t length = 0;
+					zconf.probe_module->make_packet(
+						buf, &length, src_ip, current_ip, ttl,
+						validation, i, probe_data);
+					if (length > MAX_PACKET_SIZE) {
+						log_fatal(
+							"send",
+							"send thread %hhu set length (%zu) larger than MAX (%zu)",
+							s->thread_id, length,
+							MAX_PACKET_SIZE);
+					}
+					if (zconf.dryrun) {
+						lock_file(stdout);
+						zconf.probe_module->print_packet(stdout,
+										buf);
+						unlock_file(stdout);
+					} else {
+						void *contents =
+							buf +
+							zconf.send_ip_pkts *
+							sizeof(struct ether_header);
+						length -= (zconf.send_ip_pkts *
+							sizeof(struct ether_header));
+						int any_sends_successful = 0;
+						for (int i = 0; i < attempts; ++i) {
+							int rc = send_packet(
+								st, contents, length, idx);
+							if (rc < 0) {
+								// IPv6
+								if (ipv6) {
+									char ipv6_str[100];
+									inet_ntop(AF_INET6, &ipv6_dst, ipv6_str, 100-1);
+									log_debug("send", "send_packet failed for %s. %s",
+											ipv6_str, strerror(errno));
+								} else {
+									struct in_addr addr;
+									addr.s_addr = current_ip;
+									char addr_str_buf[INET_ADDRSTRLEN];
+									const char *addr_str =
+										inet_ntop(
+										AF_INET, &addr,
+										addr_str_buf,
+										INET_ADDRSTRLEN);
+									if (addr_str != NULL) {
+										log_debug(
+										"send",
+										"send_packet failed for %s. %s",
+										addr_str,
+										strerror(
+											errno));
+									}
 								}
+							} else {
+								any_sends_successful =
+									1;
+								break;
 							}
-						} else {
-							any_sends_successful =
-							    1;
-							break;
 						}
+						if (!any_sends_successful) {
+							s->state.packets_failed++;
+						}
+						idx++;
+						idx &= 0xFF;
 					}
-					if (!any_sends_successful) {
-						s->state.packets_failed++;
-					}
-					idx++;
-					idx &= 0xFF;
 				}
 				s->state.packets_sent++;
 			}

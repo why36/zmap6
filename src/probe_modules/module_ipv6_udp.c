@@ -344,6 +344,7 @@ void ipv6_udp_process_packet(const u_char *packet, UNUSED uint32_t len, fieldset
 		fs_add_null(fs, "icmp_type");
 		fs_add_null(fs, "icmp_code");
 		fs_add_null(fs, "origin_ttl");
+		fs_add_null(fs, "icmp_unreach_str");
 		fs_add_uint64(fs, "udp_pkt_size", ntohs(udp->uh_ulen));
 		// Verify that the UDP length is big enough for the header and at least one byte
 		uint16_t data_len = ntohs(udp->uh_ulen);
@@ -378,7 +379,7 @@ void ipv6_udp_process_packet(const u_char *packet, UNUSED uint32_t len, fieldset
 		fs_add_string(fs, "icmp_responder", make_ipv6_str(&ipv6_hdr->ip6_src), 1);
 		fs_add_uint64(fs, "icmp_type", icmp6->icmp6_type);
 		fs_add_uint64(fs, "icmp_code", icmp6->icmp6_code);
-		fs_add_uint64(fs, "origin_ttl", (uint8_t)(ipv6_inner->ip6_ctlun.ip6_un1.ip6_un1_flow & 0xFF));
+		fs_add_uint64(fs, "origin_ttl", (uint8_t)(ipv6_inner->ip6_ctlun.ip6_un1.ip6_un1_flow >> 24));
 /*
 		if (icmp->icmp_code <= ICMP_UNREACH_PRECEDENCE_CUTOFF) {
 			fs_add_string(fs, "icmp_unreach_str",
