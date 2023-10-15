@@ -25,12 +25,93 @@
 #include "probe_modules/probe_modules.h"
 #include "output_modules/output_modules.h"
 
+
+#include "../lib/uthash.h"
+
+#define MAX_PROBEPACKETS 10000000
+
+typedef struct {
+    struct in6_addr address;
+    UT_hash_handle hh;
+} IPv6Address;
+
+
+IPv6Address* findAddress(IPv6Address* set, struct in6_addr address) {
+    IPv6Address* foundAddr = NULL;
+    HASH_FIND(hh, set, &address, sizeof(struct in6_addr), foundAddr);
+    return foundAddr;
+}
+
+
+void insertAddress(IPv6Address** set, struct in6_addr address) {
+    IPv6Address* existingAddr = findAddress(*set, address);
+    if (existingAddr != NULL) {
+        printf("Address already exists\n");
+        return;
+    }
+
+    IPv6Address* ipv6Addr = (IPv6Address*)malloc(sizeof(IPv6Address));
+    ipv6Addr->address = address;
+    HASH_ADD(hh, *set, address, sizeof(struct in6_addr), ipv6Addr);
+}
+
+
+size_t getAddressCount(IPv6Address* set) {
+    return HASH_COUNT(set);
+}
+
+
+typedef struct {
+    struct in6_addr routerIP;
+    IPv6Address* nextHops;
+    uint32_t flows;
+    UT_hash_handle hh;
+} Router;
+
+
+Router* findRouter(Router* routerSet, struct in6_addr searchIP) {
+    Router* foundRouter = NULL;
+    HASH_FIND(hh, routerSet, &searchIP, sizeof(struct in6_addr), foundRouter);
+    return foundRouter;
+}
+
+void insertRouter(Router** routerSet, struct in6_addr newRouterIP) {
+    Router* existingRouter = findRouter(*routerSet, newRouterIP);
+    if (existingRouter != NULL) {
+		existingRouter->flows++;
+        printf("Router already exists\n");
+        return;
+    }
+    Router* newRouter = (Router*)malloc(sizeof(Router));
+    newRouter->routerIP = newRouterIP;
+    newRouter->nextHops = NULL;
+    newRouter->flows = 0;
+    HASH_ADD(hh, *routerSet, routerIP, sizeof(struct in6_addr), newRouter);
+}
+
+size_t getRouterCount(Router* routerSet) {
+    return HASH_COUNT(routerSet);
+}
+
+typedef struct  {
+    struct in6_addr saddr; 
+    struct in6_addr icmp_responder;
+    uint8_t ttl; 
+} ProbePacket;
+
+ProbePacket packets[MAX_PROBEPACKETS];
+int current_index = 0;
+
 static u_char fake_eth_hdr[65535];
 // bitmap of observed IP addresses
 static uint8_t **seen = NULL;
 
 // IPv6
 static int ipv6 = 0;
+
+//MDA status
+static Router* routerSet = NULL;
+
 void handle_packet(uint32_t buflen, const u_char *bytes,
 		   const struct timespec ts)
 {
@@ -111,6 +192,23 @@ void handle_packet(uint32_t buflen, const u_char *bytes,
 		memcpy(&fake_eth_hdr[sizeof(struct ether_header)],
 		       bytes + zconf.data_link_size, buflen);
 		bytes = fake_eth_hdr;
+	}
+	//before we process the packet, handle the mda stuff
+	if (ipv6) {
+		if (ipv6_hdr->ip6_ctlun.ip6_un1.ip6_un1_nxt == IPPROTO_ICMPV6){
+			struct icmp6_hdr *icmp6 = (struct icmp6_hdr *) (&ipv6_hdr[1]);
+			struct ip6_hdr *ipv6_inner = (struct ip6_hdr *) &icmp6[1];
+			struct in6_addr saddr = ipv6_inner->ip6_dst;
+			struct in6_addr icmp_responder  = ipv6_inner->ip6_src;
+			uint8_t origin_ttl = (uint8_t)(ipv6_inner->ip6_ctlun.ip6_un1.ip6_un1_flow >> 24);
+			ProbePacket packet = {saddr, icmp_responder, origin_ttl};
+			if (current_index < MAX_PROBEPACKETS) {
+				packets[current_index] = packet;
+				current_index++;
+			}else{
+				fprintf(stderr, "Too many packets\n");
+			}
+		}
 	}
 	zconf.probe_module->process_packet(bytes, buflen, fs, validation, ts);
 	fs_add_system_fields(fs, is_repeat, zsend.complete);

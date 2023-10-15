@@ -400,7 +400,7 @@ int send_run(sock_t st, shard_t *s)
 			}
 			for (int i = 0; i < zconf.packet_streams; i++) {
 				count++;
-					for(int k = 1; k <= 31; k++) {
+				for(int k = 1; k <= 31; k++) {
 					uint32_t src_ip = get_src_ip(current_ip, i);
 					uint32_t validation[VALIDATE_BYTES /
 								sizeof(uint32_t)];
