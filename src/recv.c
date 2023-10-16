@@ -152,6 +152,25 @@ void findLinks(ProbePacket* packetArray, int size) {
     }
 }
 
+void* findLinksThread(void* arg) {
+    findLinks(packets, packet_index);
+    return NULL;
+}
+
+// 在主线程中创建新线程并执行findLinks函数
+void runFindLinksInThread() {
+    pthread_t thread;
+	int ret;
+    ret = pthread_create(&thread, NULL, findLinksThread, NULL);
+	if (ret != 0) {
+		fprintf(stderr, "Error creating thread\n");
+	}
+    ret = pthread_detach(thread);
+	if (ret != 0) {
+		fprintf(stderr, "Error detaching thread\n");
+	}
+}
+
 void handle_packet(uint32_t buflen, const u_char *bytes,
 		   const struct timespec ts)
 {
@@ -254,7 +273,8 @@ void handle_packet(uint32_t buflen, const u_char *bytes,
 			//Do MDA check 
 			if (packet_index % MDA_FREQUENCY == 0) {
 				qsort(packets, packet_index, sizeof(ProbePacket), comparePackets);
-				findLinks(packets, packet_index);
+				//findLinks(packets, packet_index);
+				runFindLinksInThread();
 				size_t lenRouter = getRouterCount(routerSet);
 				fprintf(stderr, "Router count: %zu\n", lenRouter);
 				// char saddr_str[INET6_ADDRSTRLEN];
