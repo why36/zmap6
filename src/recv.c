@@ -29,6 +29,7 @@
 #include "../lib/uthash.h"
 
 #define MAX_PROBEPACKETS 10000000
+#define MDA_FREQUENCY 1000
 
 typedef struct {
     struct in6_addr address;
@@ -46,7 +47,7 @@ IPv6Address* findAddress(IPv6Address* set, struct in6_addr address) {
 void insertAddress(IPv6Address** set, struct in6_addr address) {
     IPv6Address* existingAddr = findAddress(*set, address);
     if (existingAddr != NULL) {
-        printf("Address already exists\n");
+        //printf("Address already exists\n");
         return;
     }
 
@@ -79,7 +80,7 @@ void insertRouter(Router** routerSet, struct in6_addr newRouterIP) {
     Router* existingRouter = findRouter(*routerSet, newRouterIP);
     if (existingRouter != NULL) {
 		existingRouter->flows++;
-        printf("Router already exists\n");
+        //printf("Router already exists\n");
         return;
     }
     Router* newRouter = (Router*)malloc(sizeof(Router));
@@ -97,10 +98,31 @@ typedef struct  {
     struct in6_addr saddr; 
     struct in6_addr icmp_responder;
     uint8_t ttl; 
+	uint8_t visited;
 } ProbePacket;
 
+int comparePackets(const void* packet1, const void* packet2) {
+    const ProbePacket* p1 = (const ProbePacket*)packet1;
+    const ProbePacket* p2 = (const ProbePacket*)packet2;
+
+    int saddrComparison = memcmp(&(p1->saddr), &(p2->saddr), sizeof(struct in6_addr));
+    if (saddrComparison != 0) {
+        return saddrComparison;
+    }
+
+    if (p1->ttl < p2->ttl) {
+        return -1;
+    } else if (p1->ttl > p2->ttl) {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+
 ProbePacket packets[MAX_PROBEPACKETS];
-int current_index = 0;
+int packet_index = 0;
 
 static u_char fake_eth_hdr[65535];
 // bitmap of observed IP addresses
@@ -111,6 +133,24 @@ static int ipv6 = 0;
 
 //MDA status
 static Router* routerSet = NULL;
+
+
+void findLinks(ProbePacket* packetArray, int size) {
+    for (int i = 0; i < size - 1; i++) {
+        ProbePacket packet1 = packetArray[i];
+        for (int j = i + 1; j < size; j++) {
+            ProbePacket packet2 = packetArray[j];
+            if (!(packet1.visited && packet2.visited) && memcmp(&(packet1.saddr), &(packet2.saddr), sizeof(struct in6_addr)) == 0 && packet1.ttl + 1 == packet2.ttl) {
+				packet1.visited = 1;
+				packet2.visited = 1;
+				insertRouter(&routerSet, packet1.icmp_responder);
+				Router* router = findRouter(routerSet, packet1.icmp_responder);
+				insertAddress(&router->nextHops, packet2.icmp_responder);
+                //fprintf(stderr,"Link found:\n");
+            }
+        }
+    }
+}
 
 void handle_packet(uint32_t buflen, const u_char *bytes,
 		   const struct timespec ts)
@@ -199,14 +239,32 @@ void handle_packet(uint32_t buflen, const u_char *bytes,
 			struct icmp6_hdr *icmp6 = (struct icmp6_hdr *) (&ipv6_hdr[1]);
 			struct ip6_hdr *ipv6_inner = (struct ip6_hdr *) &icmp6[1];
 			struct in6_addr saddr = ipv6_inner->ip6_dst;
-			struct in6_addr icmp_responder  = ipv6_inner->ip6_src;
-			uint8_t origin_ttl = (uint8_t)(ipv6_inner->ip6_ctlun.ip6_un1.ip6_un1_flow >> 24);
-			ProbePacket packet = {saddr, icmp_responder, origin_ttl};
-			if (current_index < MAX_PROBEPACKETS) {
-				packets[current_index] = packet;
-				current_index++;
-			}else{
-				fprintf(stderr, "Too many packets\n");
+			struct in6_addr icmp_responder  = ipv6_hdr->ip6_src;
+			// ignore last hop probe
+			if (memcmp(&(saddr), &(icmp_responder), sizeof(struct in6_addr)) != 0){
+				uint8_t origin_ttl = (uint8_t)(ipv6_inner->ip6_ctlun.ip6_un1.ip6_un1_flow >> 24);
+				ProbePacket packet = {saddr, icmp_responder, origin_ttl, 0};
+				if (packet_index < MAX_PROBEPACKETS) {
+					packets[packet_index] = packet;
+					packet_index++;
+				}else{
+					fprintf(stderr, "Too many packets\n");
+				}				
+			}
+			//Do MDA check 
+			if (packet_index % MDA_FREQUENCY == 0) {
+				qsort(packets, packet_index, sizeof(ProbePacket), comparePackets);
+				findLinks(packets, packet_index);
+				size_t lenRouter = getRouterCount(routerSet);
+				fprintf(stderr, "Router count: %zu\n", lenRouter);
+				// char saddr_str[INET6_ADDRSTRLEN];
+				// char icmp_responder_str[INET6_ADDRSTRLEN];
+				// inet_ntop(AF_INET6, &(packets[packet_index-1].saddr), saddr_str, INET6_ADDRSTRLEN);
+				// inet_ntop(AF_INET6, &(packets[packet_index-1].icmp_responder), icmp_responder_str, INET6_ADDRSTRLEN);
+				// fprintf(stderr,"Source address: %s\n", saddr_str);
+				// fprintf(stderr,"ICMP responder: %s\n", icmp_responder_str);
+				// fprintf(stderr,"TTL: %d\n", packets[packet_index-1].ttl);
+
 			}
 		}
 	}

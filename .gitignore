@@ -37,3 +37,4 @@ _CPack_Packages/*
 src/ztests
 .vscode/*
 test*
+output
