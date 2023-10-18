@@ -8,6 +8,8 @@
 
 #include "state.h"
 #include "../lib/logger.h"
+#include <pthread.h>
+
 
 // global configuration and defaults
 struct state_conf zconf = {.log_level = LOG_INFO,
@@ -84,6 +86,9 @@ struct state_send zsend = {
     .sendto_failures = 0,
     .max_targets = 0,
     .list_of_ips_pbm = NULL,
+	.mda_mutex = PTHREAD_MUTEX_INITIALIZER,
+	.mda_cond = PTHREAD_COND_INITIALIZER,
+	.paused = 0
 };
 
 // global receiver stats and defaults

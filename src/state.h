@@ -158,6 +158,10 @@ struct state_send {
 	uint32_t sendto_failures;
 	uint32_t max_index;
 	uint8_t **list_of_ips_pbm;
+	//MDA
+	pthread_mutex_t mda_mutex;
+	pthread_cond_t mda_cond;
+	int paused;
 };
 extern struct state_send zsend;
 

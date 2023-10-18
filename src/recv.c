@@ -6,6 +6,7 @@
  * of the License at http://www.apache.org/licenses/LICENSE-2.0
  */
 
+#define _GNU_SOURCE
 #include "recv.h"
 
 #include <assert.h>
@@ -16,6 +17,10 @@
 
 #include <pthread.h>
 #include <unistd.h>
+#include <sched.h>
+#include <sys/syscall.h>
+#include <math.h>
+
 
 #include "recv-internal.h"
 #include "state.h"
@@ -29,7 +34,8 @@
 #include "../lib/uthash.h"
 
 #define MAX_PROBEPACKETS 10000000
-#define MDA_FREQUENCY 1000
+#define MDA_FREQUENCY 10000
+#define MDA_MAP_LEN 10000
 
 typedef struct {
     struct in6_addr address;
@@ -66,6 +72,7 @@ typedef struct {
     struct in6_addr routerIP;
     IPv6Address* nextHops;
     uint32_t flows;
+	uint8_t resolved;
     UT_hash_handle hh;
 } Router;
 
@@ -87,6 +94,7 @@ void insertRouter(Router** routerSet, struct in6_addr newRouterIP) {
     newRouter->routerIP = newRouterIP;
     newRouter->nextHops = NULL;
     newRouter->flows = 0;
+	newRouter->resolved = 0;
     HASH_ADD(hh, *routerSet, routerIP, sizeof(struct in6_addr), newRouter);
 }
 
@@ -133,14 +141,41 @@ static int ipv6 = 0;
 
 //MDA status
 static Router* routerSet = NULL;
+int mda_map[MDA_MAP_LEN];
 
+void create_mda_map(double eps) {
+	for(int i = 0;i < MDA_MAP_LEN;++i) {
+		mda_map[i] = (int)ceil(log(eps / (i + 1)) / log((double)i / (i + 1)));
+	}
+}
+
+void check_mda() {
+	int resolved_router = 0;
+	int routerLen = getRouterCount(routerSet);
+	Router* current_router;
+	for(current_router = routerSet; current_router!=NULL; current_router = current_router->hh.next){
+		if (current_router->resolved == 1) {
+			resolved_router += 1;
+			continue;
+		}else{
+			int mda_threshold = getAddressCount(current_router->nextHops);
+			if (current_router->flows >= mda_map[mda_threshold]) {
+				current_router->resolved == 1;
+				fprintf(stderr,"flows: %d, mda_threshold: %d\n", current_router->flows, mda_map[mda_threshold]);
+				resolved_router += 1;
+			}
+		}
+	}
+	double resolved_rate = (double) resolved_router / (double) routerLen;
+	fprintf(stderr,"resolved_router: %d, resolved_rate: %f\n", resolved_router, resolved_rate);
+}
 
 void findLinks(ProbePacket* packetArray, int size) {
     for (int i = 0; i < size - 1; i++) {
         ProbePacket packet1 = packetArray[i];
         for (int j = i + 1; j < size; j++) {
             ProbePacket packet2 = packetArray[j];
-            if (!(packet1.visited && packet2.visited) && memcmp(&(packet1.saddr), &(packet2.saddr), sizeof(struct in6_addr)) == 0 && packet1.ttl + 1 == packet2.ttl) {
+            if (!(packet1.visited && packet2.visited) && packet1.ttl + 1 == packet2.ttl && memcmp(&(packet1.saddr), &(packet2.saddr), sizeof(struct in6_addr)) == 0) {
 				packet1.visited = 1;
 				packet2.visited = 1;
 				insertRouter(&routerSet, packet1.icmp_responder);
@@ -150,10 +185,38 @@ void findLinks(ProbePacket* packetArray, int size) {
             }
         }
     }
+	check_mda();
 }
 
 void* findLinksThread(void* arg) {
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    int available_cores = sysconf(_SC_NPROCESSORS_CONF);
+    if (available_cores < 2) {
+        fprintf(stderr, "Insufficient available cores.\n");
+        exit(EXIT_FAILURE);
+    }
+    CPU_SET(available_cores - 1, &cpuset);
+	//pid_t tid = pthread_gettid_np(thread);
+    // 设置线程亲和性
+    int result = sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
+    if (result != 0) {
+        fprintf(stderr, "Error setting thread affinity.\n");
+        exit(EXIT_FAILURE);
+    }
+	//pid_t pid = getpid();
+	fprintf(stderr, "Start sort in thread %d\n",syscall(SYS_gettid));
+	//pause send thread;
+    pthread_mutex_lock(&zsend.mda_mutex);
+    zsend.paused = 1;
+    pthread_mutex_unlock(&zsend.mda_mutex);
     findLinks(packets, packet_index);
+	//resume send thread;
+	pthread_mutex_lock(&zsend.mda_mutex);
+    zsend.paused = 0;
+    pthread_cond_signal(&zsend.mda_cond);
+    pthread_mutex_unlock(&zsend.mda_mutex);
+	fprintf(stderr, "Finish sort in thread %d\n",syscall(SYS_gettid));
     return NULL;
 }
 
@@ -352,6 +415,7 @@ int recv_run(pthread_mutex_t *recv_ready_mutex)
 	// IPv6
 	if (zconf.ipv6_target_filename) {
 		ipv6 = 1;
+		create_mda_map(0.05);
 	}
 
 	log_trace("recv", "recv thread started");
