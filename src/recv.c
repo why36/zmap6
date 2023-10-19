@@ -105,7 +105,6 @@ typedef struct  {
     struct in6_addr saddr; 
     struct in6_addr icmp_responder;
     uint8_t ttl; 
-	uint8_t visited;
 } ProbePacket;
 
 int comparePackets(const void* packet1, const void* packet2) {
@@ -181,9 +180,7 @@ void findLinks(ProbePacket* packetArray, int size) {
         ProbePacket packet1 = packetArray[i];
         for (int j = i + 1; j < size; j++) {
             ProbePacket packet2 = packetArray[j];
-            if (!(packet1.visited && packet2.visited) && packet1.ttl + 1 == packet2.ttl && memcmp(&(packet1.saddr), &(packet2.saddr), sizeof(struct in6_addr)) == 0) {
-				packet1.visited = 1;
-				packet2.visited = 1;
+            if (packet1.ttl + 1 == packet2.ttl && memcmp(&(packet1.saddr), &(packet2.saddr), sizeof(struct in6_addr)) == 0) {
 				insertRouter(&routerSet, packet1.icmp_responder);
 				Router* router = findRouter(routerSet, packet1.icmp_responder);
 				insertAddress(&router->nextHops, packet2.icmp_responder);
