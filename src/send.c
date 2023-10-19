@@ -36,6 +36,8 @@
 #include "validate.h"
 #include "ipv6_target_file.h"
 
+#define MDA_FREQUENCY 10000
+
 // OS specific functions called by send_run
 static inline int send_packet(sock_t sock, void *buf, int len, uint32_t idx);
 static inline int send_run_init(sock_t sock);
@@ -321,6 +323,11 @@ int send_run(sock_t st, shard_t *s)
 	int attempts = zconf.num_retries + 1;
 	uint32_t idx = 0;
 	while (1) {
+		if(s->state.hosts_scanned % MDA_FREQUENCY == 0) {
+			pthread_mutex_lock(&zsend.mda_mutex);
+			zsend.paused = 1;
+			pthread_mutex_unlock(&zsend.mda_mutex);
+		}
 		// if mda is processing, pause send
         pthread_mutex_lock(&zsend.mda_mutex);
         while (zsend.paused) {
@@ -484,8 +491,8 @@ int send_run(sock_t st, shard_t *s)
 						idx++;
 						idx &= 0xFF;
 					}
+					s->state.packets_sent++;
 				}
-				s->state.packets_sent++;
 			}
 			// Track the number of hosts we actually scanned.
 			s->state.hosts_scanned++;

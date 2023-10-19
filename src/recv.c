@@ -34,7 +34,6 @@
 #include "../lib/uthash.h"
 
 #define MAX_PROBEPACKETS 10000000
-#define MDA_FREQUENCY 10000
 #define MDA_MAP_LEN 10000
 
 typedef struct {
@@ -206,10 +205,6 @@ void* findLinksThread(void* arg) {
     }
 	//pid_t pid = getpid();
 	fprintf(stderr, "Start sort in thread %d\n",syscall(SYS_gettid));
-	//pause send thread;
-    pthread_mutex_lock(&zsend.mda_mutex);
-    zsend.paused = 1;
-    pthread_mutex_unlock(&zsend.mda_mutex);
     findLinks(packets, packet_index);
 	//resume send thread;
 	pthread_mutex_lock(&zsend.mda_mutex);
@@ -333,22 +328,16 @@ void handle_packet(uint32_t buflen, const u_char *bytes,
 					fprintf(stderr, "Too many packets\n");
 				}				
 			}
-			//Do MDA check 
-			if (packet_index % MDA_FREQUENCY == 0) {
+			pthread_mutex_lock(&zsend.mda_mutex);
+			if(zsend.paused == 1){
+				//Do MDA check
 				qsort(packets, packet_index, sizeof(ProbePacket), comparePackets);
 				//findLinks(packets, packet_index);
 				runFindLinksInThread();
 				size_t lenRouter = getRouterCount(routerSet);
 				fprintf(stderr, "Router count: %zu\n", lenRouter);
-				// char saddr_str[INET6_ADDRSTRLEN];
-				// char icmp_responder_str[INET6_ADDRSTRLEN];
-				// inet_ntop(AF_INET6, &(packets[packet_index-1].saddr), saddr_str, INET6_ADDRSTRLEN);
-				// inet_ntop(AF_INET6, &(packets[packet_index-1].icmp_responder), icmp_responder_str, INET6_ADDRSTRLEN);
-				// fprintf(stderr,"Source address: %s\n", saddr_str);
-				// fprintf(stderr,"ICMP responder: %s\n", icmp_responder_str);
-				// fprintf(stderr,"TTL: %d\n", packets[packet_index-1].ttl);
-
 			}
+			pthread_mutex_unlock(&zsend.mda_mutex);			
 		}
 	}
 	zconf.probe_module->process_packet(bytes, buflen, fs, validation, ts);
