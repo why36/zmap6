@@ -323,7 +323,9 @@ int send_run(sock_t st, shard_t *s)
 	int attempts = zconf.num_retries + 1;
 	uint32_t idx = 0;
 	while (1) {
-		if(s->state.hosts_scanned % MDA_FREQUENCY == 0) {
+		if(s->state.hosts_scanned > 0 && s->state.hosts_scanned % MDA_FREQUENCY == 0) {
+			// sleep for 5 second to let recv get all packets
+			sleep(5);
 			pthread_mutex_lock(&zsend.mda_mutex);
 			zsend.paused = 1;
 			pthread_mutex_unlock(&zsend.mda_mutex);

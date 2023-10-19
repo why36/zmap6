@@ -141,6 +141,13 @@ static int ipv6 = 0;
 //MDA status
 static Router* routerSet = NULL;
 int mda_map[MDA_MAP_LEN];
+static uint8_t mda_processing = 0; 
+
+void clearPacketArray() {
+	// Empty the packets when a round of send finish, since no more information needed
+    memset(packets, 0, sizeof(packets));
+	packet_index = 0;
+}
 
 void create_mda_map(double eps) {
 	for(int i = 0;i < MDA_MAP_LEN;++i) {
@@ -160,13 +167,13 @@ void check_mda() {
 			int mda_threshold = getAddressCount(current_router->nextHops);
 			if (current_router->flows >= mda_map[mda_threshold]) {
 				current_router->resolved == 1;
-				fprintf(stderr,"flows: %d, mda_threshold: %d\n", current_router->flows, mda_map[mda_threshold]);
+				//fprintf(stderr,"flows: %d, mda_threshold: %d\n", current_router->flows, mda_map[mda_threshold]);
 				resolved_router += 1;
 			}
 		}
 	}
 	double resolved_rate = (double) resolved_router / (double) routerLen;
-	fprintf(stderr,"resolved_router: %d, resolved_rate: %f\n", resolved_router, resolved_rate);
+	fprintf(stderr,"router_count: %d, resolved_router: %d, resolved_rate: %f\n", routerLen, resolved_router, resolved_rate);
 }
 
 void findLinks(ProbePacket* packetArray, int size) {
@@ -185,6 +192,7 @@ void findLinks(ProbePacket* packetArray, int size) {
         }
     }
 	check_mda();
+	clearPacketArray();
 }
 
 void* findLinksThread(void* arg) {
@@ -212,6 +220,7 @@ void* findLinksThread(void* arg) {
     pthread_cond_signal(&zsend.mda_cond);
     pthread_mutex_unlock(&zsend.mda_mutex);
 	fprintf(stderr, "Finish sort in thread %d\n",syscall(SYS_gettid));
+	mda_processing = 0;
     return NULL;
 }
 
@@ -327,17 +336,7 @@ void handle_packet(uint32_t buflen, const u_char *bytes,
 				}else{
 					fprintf(stderr, "Too many packets\n");
 				}				
-			}
-			pthread_mutex_lock(&zsend.mda_mutex);
-			if(zsend.paused == 1){
-				//Do MDA check
-				qsort(packets, packet_index, sizeof(ProbePacket), comparePackets);
-				//findLinks(packets, packet_index);
-				runFindLinksInThread();
-				size_t lenRouter = getRouterCount(routerSet);
-				fprintf(stderr, "Router count: %zu\n", lenRouter);
-			}
-			pthread_mutex_unlock(&zsend.mda_mutex);			
+			}		
 		}
 	}
 	zconf.probe_module->process_packet(bytes, buflen, fs, validation, ts);
@@ -444,6 +443,19 @@ int recv_run(pthread_mutex_t *recv_ready_mutex)
 		if (zconf.dryrun) {
 			sleep(1);
 		} else {
+
+			pthread_mutex_lock(&zsend.mda_mutex);
+			if(zsend.paused == 1){
+				//Do MDA check
+				if (mda_processing == 0){
+					mda_processing = 1;
+					qsort(packets, packet_index, sizeof(ProbePacket), comparePackets);
+					//findLinks(packets, packet_index);
+					runFindLinksInThread();
+				}
+			}
+			pthread_mutex_unlock(&zsend.mda_mutex);	
+
 			recv_packets();
 			if (zconf.max_results &&
 			    zrecv.filter_success >= zconf.max_results) {
