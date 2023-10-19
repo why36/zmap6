@@ -92,7 +92,7 @@ void insertRouter(Router** routerSet, struct in6_addr newRouterIP) {
     Router* newRouter = (Router*)malloc(sizeof(Router));
     newRouter->routerIP = newRouterIP;
     newRouter->nextHops = NULL;
-    newRouter->flows = 0;
+    newRouter->flows = 1;
 	newRouter->resolved = 0;
     HASH_ADD(hh, *routerSet, routerIP, sizeof(struct in6_addr), newRouter);
 }
