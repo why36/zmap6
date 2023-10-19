@@ -165,8 +165,10 @@ void check_mda() {
 		}else{
 			int mda_threshold = getAddressCount(current_router->nextHops);
 			if (current_router->flows >= mda_map[mda_threshold]) {
-				current_router->resolved == 1;
-				//fprintf(stderr,"flows: %d, mda_threshold: %d\n", current_router->flows, mda_map[mda_threshold]);
+				current_router->resolved = 1;
+				// char ipv6_str_123[INET6_ADDRSTRLEN];
+				// inet_ntop(AF_INET6, &current_router->routerIP, ipv6_str_123, INET6_ADDRSTRLEN);
+				// fprintf(stderr,"routerIP: %s, flows: %d, mda_threshold: %d\n", ipv6_str_123, current_router->flows, mda_map[mda_threshold]);
 				resolved_router += 1;
 			}
 		}
