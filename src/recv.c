@@ -443,17 +443,17 @@ int recv_run(pthread_mutex_t *recv_ready_mutex)
 			sleep(1);
 		} else {
 
-			pthread_mutex_lock(&zsend.mda_mutex);
-			if(zsend.paused == 1){
-				//Do MDA check
-				if (mda_processing == 0){
-					mda_processing = 1;
-					qsort(packets, packet_index, sizeof(ProbePacket), comparePackets);
-					//findLinks(packets, packet_index);
-					runFindLinksInThread();
-				}
-			}
-			pthread_mutex_unlock(&zsend.mda_mutex);	
+			// pthread_mutex_lock(&zsend.mda_mutex);
+			// if(zsend.paused == 1){
+			// 	//Do MDA check
+			// 	if (mda_processing == 0){
+			// 		mda_processing = 1;
+			// 		qsort(packets, packet_index, sizeof(ProbePacket), comparePackets);
+			// 		//findLinks(packets, packet_index);
+			// 		runFindLinksInThread();
+			// 	}
+			// }
+			// pthread_mutex_unlock(&zsend.mda_mutex);	
 
 			recv_packets();
 			if (zconf.max_results &&
