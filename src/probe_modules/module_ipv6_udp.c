@@ -278,7 +278,7 @@ int ipv6_udp_make_packet(void *buf, size_t *buf_len, __attribute__((unused)) ipa
 	ip6_header->ip6_ctlun.ip6_un1.ip6_un1_hlim = ttl;
 	// udp_header->uh_sport = htons(get_src_port(num_ports, probe_num,
 	// 			     validation));
-	udp_header->uh_sport = htons(24000);
+	udp_header->uh_sport = htons(33434);
 
 	// TODO FIXME
 /*

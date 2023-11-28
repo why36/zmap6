@@ -154,6 +154,16 @@ void create_mda_map(double eps) {
 	}
 }
 
+void report_data() {
+	int routerLen = getRouterCount(routerSet);
+	int linkLen = 0;
+	Router* current_router;
+	for(current_router = routerSet; current_router!=NULL; current_router = current_router->hh.next) {
+		linkLen += getAddressCount(current_router->nextHops);
+	}
+	fprintf(stderr,"router_count: %d, link_count: %d\n", routerLen, linkLen);
+}
+
 void check_mda() {
 	int resolved_router = 0;
 	int routerLen = getRouterCount(routerSet);
@@ -190,7 +200,8 @@ void findLinks(ProbePacket* packetArray, int size) {
             }
         }
     }
-	check_mda();
+	//check_mda();
+	report_data();
 	clearPacketArray();
 }
 
@@ -211,14 +222,14 @@ void* findLinksThread(void* arg) {
         exit(EXIT_FAILURE);
     }
 	//pid_t pid = getpid();
-	fprintf(stderr, "Start sort in thread %d\n",syscall(SYS_gettid));
+	//fprintf(stderr, "Start sort in thread %d\n",syscall(SYS_gettid));
     findLinks(packets, packet_index);
 	//resume send thread;
 	pthread_mutex_lock(&zsend.mda_mutex);
     zsend.paused = 0;
     pthread_cond_signal(&zsend.mda_cond);
     pthread_mutex_unlock(&zsend.mda_mutex);
-	fprintf(stderr, "Finish sort in thread %d\n",syscall(SYS_gettid));
+	//fprintf(stderr, "Finish sort in thread %d\n",syscall(SYS_gettid));
 	mda_processing = 0;
     return NULL;
 }
